@@ -75,8 +75,10 @@ class TestFileUploader(unittest.TestCase):
         with open(invalid_file, 'w') as f:
             f.write("{}")
         
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as context:
             self.uploader.upload_metrics_file(invalid_file)
+        # Verify error message includes the actual filename
+        self.assertIn("invalid.json", str(context.exception))
     
     def test_upload_nonexistent_file(self):
         """Test uploading a nonexistent file."""

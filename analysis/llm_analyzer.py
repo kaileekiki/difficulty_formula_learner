@@ -65,8 +65,9 @@ class LLMAnalyzer:
             return self._fallback_interpretation(formula_string, feature_importance)
         
         # Sanitize inputs to prevent prompt injection
-        # Limit formula string length and remove potentially problematic characters
+        # Limit formula string length (500 chars) to prevent excessively long prompts
         safe_formula = str(formula_string)[:500]
+        # Limit feature importance to 20 features with 100 char names
         safe_importance = {str(k)[:100]: float(v) for k, v in list(feature_importance.items())[:20]}
         
         prompt = f"""

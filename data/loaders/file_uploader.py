@@ -37,7 +37,7 @@ class FileUploader:
         
         # Validate file naming: must start with "v3_progress_" and end with ".json"
         if not (source.name.startswith("v3_progress_") and source.suffix == ".json"):
-            raise ValueError("File must be named v3_progress_*.json")
+            raise ValueError(f"File must be named v3_progress_*.json, got: {source.name}")
         
         dest = self.metrics_dir / source.name
         shutil.copy(source, dest)

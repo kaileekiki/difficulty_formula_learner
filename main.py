@@ -136,7 +136,11 @@ def handle_upload_mode(config):
         
         # Update config to use uploaded data
         config['data']['metrics_dir'] = uploader.get_metrics_dir()
-        config['data']['matrix_file'] = uploader.get_matrix_file()
+        matrix_file = uploader.get_matrix_file()
+        if matrix_file is None:
+            print("\n✗ Matrix file not found after validation!")
+            return False
+        config['data']['matrix_file'] = matrix_file
         
         print(f"\nUsing:")
         print(f"  Metrics: {config['data']['metrics_dir']}")
