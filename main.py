@@ -41,6 +41,121 @@ from export.formula_exporter import FormulaExporter
 from export.report_generator import ReportGenerator
 
 
+def show_formula_catalog():
+    """Display formula catalog with explanations."""
+    from formula.formula_catalog import FormulaCatalog
+    
+    print("\n" + "="*80)
+    print("FORMULA CATALOG")
+    print("="*80)
+    
+    report = FormulaCatalog.generate_catalog_report()
+    print(report)
+    
+    # Save to file
+    with open("FORMULA_CATALOG.md", "w", encoding='utf-8') as f:
+        f.write(report)
+    print("✓ Catalog saved to FORMULA_CATALOG.md\n")
+
+
+def analyze_with_llm(best_formula, results, evaluation_summary, config):
+    """Use LLM for additional analysis."""
+    from analysis.llm_analyzer import LLMAnalyzer
+    
+    print("\n" + "="*80)
+    print("LLM-BASED ANALYSIS")
+    print("="*80)
+    
+    provider = config.get('api', {}).get('provider', 'openai')
+    model = config.get('api', {}).get('model', None)
+    analyzer = LLMAnalyzer(provider=provider, model=model)
+    
+    if not analyzer.is_available:
+        print("⚠️  API key not set. Using fallback analysis.")
+        print("   Set OPENAI_API_KEY or ANTHROPIC_API_KEY environment variable for enhanced analysis.\n")
+    else:
+        print(f"✓ Using {provider.upper()} API for analysis\n")
+    
+    # Interpret formula
+    print("→ Interpreting formula...")
+    formula_string = best_formula.name
+    interpretation = analyzer.interpret_formula(
+        formula_string,
+        results['feature_importance']
+    )
+    print(interpretation)
+    
+    # Get recommendations
+    print("\n→ Getting improvement recommendations...")
+    # Get feature-target correlations
+    correlation_data = {}
+    if 'feature_importance' in results:
+        correlation_data = results['feature_importance']
+    
+    recommendations = analyzer.recommend_formula_improvements(
+        formula_string,
+        results['evaluation'],
+        correlation_data
+    )
+    print(recommendations)
+    
+    # Explain selection
+    print("\n→ Explaining formula selection...")
+    explanation = analyzer.explain_formula_selection(
+        evaluation_summary,
+        best_formula.get_metadata()
+    )
+    print(explanation)
+    
+    return {
+        'interpretation': interpretation,
+        'recommendations': recommendations,
+        'selection_explanation': explanation
+    }
+
+
+def handle_upload_mode(config):
+    """Handle manual data upload mode."""
+    from data.loaders.file_uploader import FileUploader
+    
+    print("\n" + "="*80)
+    print("MANUAL DATA UPLOAD MODE")
+    print("="*80)
+    
+    uploader = FileUploader(data_dir="data/sample")
+    
+    print(f"\n→ Checking uploaded data in: {uploader.data_dir}")
+    validation = uploader.validate_uploaded_data()
+    
+    print(f"\n✓ Found {validation['metrics_files_count']} metrics files")
+    print(f"✓ Matrix file exists: {validation['matrix_file_exists']}")
+    
+    if validation['is_valid']:
+        print(f"✓ Total bugs in metrics: {validation['total_bugs_in_metrics']}")
+        print("\n✓ Data validation passed!")
+        
+        # Update config to use uploaded data
+        config['data']['metrics_dir'] = uploader.get_metrics_dir()
+        matrix_file = uploader.get_matrix_file()
+        if matrix_file is None:
+            print("\n✗ Matrix file not found after validation!")
+            return False
+        config['data']['matrix_file'] = matrix_file
+        
+        print(f"\nUsing:")
+        print(f"  Metrics: {config['data']['metrics_dir']}")
+        print(f"  Matrix:  {config['data']['matrix_file']}")
+        
+        return True
+    else:
+        print("\n✗ Data validation failed!")
+        print("\nPlease upload data to:")
+        print(f"  Metrics: {uploader.metrics_dir}/")
+        print(f"  Matrix:  {uploader.results_dir}/model_bug_matrix.csv")
+        print("\nSee data/sample/README.md for more information.")
+        return False
+
+
 def load_config(config_path: str) -> dict:
     """Load configuration from YAML file."""
     with open(config_path, 'r') as f:
@@ -396,11 +511,36 @@ def main():
         type=str,
         help='Comma-separated list of formula types to try'
     )
+    parser.add_argument(
+        '--upload-mode',
+        action='store_true',
+        help='Use manually uploaded data from data/sample/'
+    )
+    parser.add_argument(
+        '--explain-formulas',
+        action='store_true',
+        help='Display formula catalog with explanations and exit'
+    )
+    parser.add_argument(
+        '--use-api',
+        action='store_true',
+        help='Use LLM API for enhanced formula analysis'
+    )
     
     args = parser.parse_args()
     
+    # Handle explain-formulas mode (exit after showing catalog)
+    if args.explain_formulas:
+        show_formula_catalog()
+        sys.exit(0)
+    
     # Load configuration
     config = load_config(args.config)
+    
+    # Handle upload mode
+    if args.upload_mode:
+        if not handle_upload_mode(config):
+            sys.exit(1)
     
     # Override config with command-line arguments
     if args.metrics_dir:
@@ -411,6 +551,10 @@ def main():
         config['output']['output_dir'] = args.output_dir
     if args.formula_types:
         config['formula']['types'] = args.formula_types.split(',')
+    if args.use_api:
+        if 'api' not in config:
+            config['api'] = {}
+        config['api']['use_llm_analysis'] = True
     
     # Validate required paths
     if not config['data']['metrics_dir']:
@@ -441,6 +585,12 @@ def main():
     
     # Analyze formula
     results, y_pred = analyze_formula(best_formula, X_processed, y, config)
+    
+    # LLM-based analysis (if enabled)
+    llm_analysis = None
+    if config.get('api', {}).get('use_llm_analysis', False):
+        llm_analysis = analyze_with_llm(best_formula, results, evaluation_summary, config)
+        results['llm_analysis'] = llm_analysis
     
     # Create visualizations
     figures = create_visualizations(best_formula, X_processed, y, y_pred, results, config)

@@ -101,3 +101,10 @@ output:
 
 random_state: 42
 verbose: true
+
+# API 설정 (환경변수로 API 키 설정 권장)
+api:
+  provider: "openai"  # "openai" or "anthropic"
+  # api_key는 환경변수 OPENAI_API_KEY 또는 ANTHROPIC_API_KEY 사용
+  use_llm_analysis: false  # Use --use-api flag or set to true to enable
+  # model: "gpt-4"  # Optional: specify model (defaults: gpt-4 for OpenAI, claude-3-sonnet-20240229 for Anthropic)
