@@ -106,4 +106,4 @@ verbose: true
 api:
   provider: "openai"  # "openai" or "anthropic"
   # api_key는 환경변수 OPENAI_API_KEY 또는 ANTHROPIC_API_KEY 사용
-  use_llm_analysis: true
+  use_llm_analysis: false  # Use --use-api flag or set to true to enable
