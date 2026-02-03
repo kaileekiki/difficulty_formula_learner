@@ -124,6 +124,8 @@ dmypy.json
 
 # Output directories
 outputs/
+example_data/
+example_outputs/
 *.pkl
 *.joblib
 
