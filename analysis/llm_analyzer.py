@@ -64,13 +64,18 @@ class LLMAnalyzer:
         if not self.is_available:
             return self._fallback_interpretation(formula_string, feature_importance)
         
+        # Sanitize inputs to prevent prompt injection
+        # Limit formula string length and remove potentially problematic characters
+        safe_formula = str(formula_string)[:500]
+        safe_importance = {str(k)[:100]: float(v) for k, v in list(feature_importance.items())[:20]}
+        
         prompt = f"""
 다음 버그 난이도 예측 수식을 해석해주세요:
 
-수식: {formula_string}
+수식: {safe_formula}
 
 Feature Importance:
-{json.dumps(feature_importance, indent=2)}
+{json.dumps(safe_importance, indent=2)}
 
 다음 관점에서 해석해주세요:
 1. 수식의 직관적 의미
@@ -99,18 +104,23 @@ Feature Importance:
         if not self.is_available:
             return self._fallback_recommendations(metrics)
         
+        # Sanitize inputs
+        safe_formula = str(current_formula)[:500]
+        safe_metrics = {str(k)[:50]: float(v) for k, v in list(metrics.items())[:10]}
+        safe_corr = {str(k)[:100]: float(v) for k, v in list(correlation_data.items())[:20]}
+        
         prompt = f"""
 현재 버그 난이도 예측 수식의 성능을 개선하기 위한 제안을 해주세요.
 
-현재 수식: {current_formula}
+현재 수식: {safe_formula}
 
 성능 지표:
-- Spearman ρ: {metrics.get('spearman', 'N/A')}
-- R²: {metrics.get('r2', 'N/A')}
-- RMSE: {metrics.get('rmse', 'N/A')}
+- Spearman ρ: {safe_metrics.get('spearman', 'N/A')}
+- R²: {safe_metrics.get('r2', 'N/A')}
+- RMSE: {safe_metrics.get('rmse', 'N/A')}
 
 Feature-Target 상관관계:
-{json.dumps(correlation_data, indent=2)}
+{json.dumps(safe_corr, indent=2)}
 
 다음 관점에서 제안해주세요:
 1. 추가할 만한 feature 변환 (log, sqrt, 제곱 등)
@@ -137,10 +147,28 @@ Feature-Target 상관관계:
         if not self.is_available:
             return self._fallback_selection_explanation(formula_candidates, best_formula)
         
+        # Sanitize and limit candidates to top 10
+        safe_candidates = []
+        for c in formula_candidates[:10]:
+            safe_name = str(c.get('formula_name', 'Unknown'))[:100]
+            safe_candidates.append({
+                'formula_name': safe_name,
+                'cv_spearman_mean': float(c.get('cv_spearman_mean', 0)),
+                'cv_r2_mean': float(c.get('cv_r2_mean', 0)),
+                'complexity': int(c.get('complexity', 0))
+            })
+        
+        safe_best = {
+            'formula_name': str(best_formula.get('formula_name', 'Unknown'))[:100],
+            'cv_spearman_mean': float(best_formula.get('cv_spearman_mean', 0)),
+            'cv_r2_mean': float(best_formula.get('cv_r2_mean', 0)),
+            'complexity': int(best_formula.get('complexity', 0))
+        }
+        
         candidates_summary = "\n".join([
-            f"- {c['formula_name']}: Spearman={c.get('cv_spearman_mean', 0):.4f}, "
-            f"R²={c.get('cv_r2_mean', 0):.4f}, Complexity={c.get('complexity', 0)}"
-            for c in formula_candidates[:10]  # Limit to top 10
+            f"- {c['formula_name']}: Spearman={c['cv_spearman_mean']:.4f}, "
+            f"R²={c['cv_r2_mean']:.4f}, Complexity={c['complexity']}"
+            for c in safe_candidates
         ])
         
         prompt = f"""
@@ -150,10 +178,10 @@ Feature-Target 상관관계:
 {candidates_summary}
 
 선택된 수식:
-- 이름: {best_formula.get('formula_name')}
-- Spearman ρ: {best_formula.get('cv_spearman_mean', 0):.4f}
-- R²: {best_formula.get('cv_r2_mean', 0):.4f}
-- Complexity: {best_formula.get('complexity', 0)}
+- 이름: {safe_best['formula_name']}
+- Spearman ρ: {safe_best['cv_spearman_mean']:.4f}
+- R²: {safe_best['cv_r2_mean']:.4f}
+- Complexity: {safe_best['complexity']}
 
 다음을 포함해서 설명해주세요:
 1. 이 수식이 선택된 핵심 이유

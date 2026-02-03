@@ -35,6 +35,7 @@ class FileUploader:
         if not source.exists():
             raise FileNotFoundError(f"File not found: {source_path}")
         
+        # Validate file naming: must start with "v3_progress_" and end with ".json"
         if not (source.name.startswith("v3_progress_") and source.suffix == ".json"):
             raise ValueError("File must be named v3_progress_*.json")
         
