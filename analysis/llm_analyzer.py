@@ -10,16 +10,25 @@ from typing import Dict, List, Optional, Any
 class LLMAnalyzer:
     """Use LLM APIs for formula interpretation and recommendations."""
     
-    def __init__(self, api_key: Optional[str] = None, provider: str = "openai"):
+    def __init__(self, api_key: Optional[str] = None, provider: str = "openai", model: Optional[str] = None):
         """
         Initialize LLM analyzer.
         
         Args:
             api_key: API key (or set via environment variable)
             provider: "openai" or "anthropic"
+            model: Model name (defaults: "gpt-4" for OpenAI, "claude-3-sonnet-20240229" for Anthropic)
         """
         self.provider = provider
         self.client = None
+        
+        # Set default models
+        if model:
+            self.model = model
+        elif provider == "openai":
+            self.model = "gpt-4"
+        else:  # anthropic
+            self.model = "claude-3-sonnet-20240229"
         
         if provider == "openai":
             self.api_key = api_key or os.environ.get("OPENAI_API_KEY")
@@ -160,14 +169,14 @@ Feature-Target 상관관계:
         try:
             if self.provider == "openai":
                 response = self.client.chat.completions.create(
-                    model="gpt-4",
+                    model=self.model,
                     messages=[{"role": "user", "content": prompt}],
                     max_tokens=1000
                 )
                 return response.choices[0].message.content
             elif self.provider == "anthropic":
                 response = self.client.messages.create(
-                    model="claude-3-sonnet-20240229",
+                    model=self.model,
                     max_tokens=1000,
                     messages=[{"role": "user", "content": prompt}]
                 )

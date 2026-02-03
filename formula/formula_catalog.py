@@ -2,7 +2,7 @@
 Formula Catalog
 Comprehensive list of formula candidates with explanations
 """
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 
 
@@ -372,7 +372,7 @@ class FormulaCatalog:
         return [f for f in cls.FORMULAS if f.category == category]
     
     @classmethod
-    def get_formula_by_type(cls, formula_type: str) -> FormulaCandidate:
+    def get_formula_by_type(cls, formula_type: str) -> Optional[FormulaCandidate]:
         """Get a specific formula by type."""
         for f in cls.FORMULAS:
             if f.formula_type == formula_type:

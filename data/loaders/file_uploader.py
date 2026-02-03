@@ -35,7 +35,7 @@ class FileUploader:
         if not source.exists():
             raise FileNotFoundError(f"File not found: {source_path}")
         
-        if not source.name.startswith("v3_progress_") or not source.suffix == ".json":
+        if not (source.name.startswith("v3_progress_") and source.suffix == ".json"):
             raise ValueError("File must be named v3_progress_*.json")
         
         dest = self.metrics_dir / source.name

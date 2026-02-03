@@ -42,8 +42,14 @@ class TestLLMAnalyzer(unittest.TestCase):
             "rmse": 0.15
         }
         
+        # Test with empty correlation data
         result = analyzer.recommend_formula_improvements("y = x", metrics, {})
         self.assertIn("개선 제안", result)
+        
+        # Test with populated correlation data
+        correlation_data = {"DFG_GED": 0.8, "LOC": 0.5}
+        result2 = analyzer.recommend_formula_improvements("y = x", metrics, correlation_data)
+        self.assertIn("개선 제안", result2)
     
     def test_fallback_selection_explanation(self):
         """Test fallback selection explanation without API."""

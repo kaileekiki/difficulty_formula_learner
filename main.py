@@ -67,7 +67,8 @@ def analyze_with_llm(best_formula, results, evaluation_summary, config):
     print("="*80)
     
     provider = config.get('api', {}).get('provider', 'openai')
-    analyzer = LLMAnalyzer(provider=provider)
+    model = config.get('api', {}).get('model', None)
+    analyzer = LLMAnalyzer(provider=provider, model=model)
     
     if not analyzer.is_available:
         print("⚠️  API key not set. Using fallback analysis.")
