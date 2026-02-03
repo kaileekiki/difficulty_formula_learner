@@ -1,0 +1,103 @@
+# Configuration for Difficulty Formula Learner
+
+data:
+  # Path to v3_progress_*.json files
+  metrics_dir: null
+  # Path to model_bug_matrix.csv
+  matrix_file: null
+  # Aggregation method for metrics: 'sum', 'avg', 'max', or 'auto'
+  aggregation: 'auto'
+  # Normalization method: 'standard', 'minmax', 'robust', or null
+  normalization: 'standard'
+
+formula:
+  # Formula types to try: linear, polynomial, nonlinear, tree, symbolic
+  types:
+    - linear
+    - polynomial
+    - tree
+    - symbolic
+  
+  # Linear formula settings
+  linear:
+    regularization: ['ridge', 'lasso', 'elasticnet']
+    alpha: [0.1, 1.0, 10.0]
+  
+  # Polynomial formula settings
+  polynomial:
+    degree: [2, 3]
+    interaction_only: false
+  
+  # Tree-based formula settings
+  tree:
+    n_estimators: 100
+    max_depth: 5
+    random_state: 42
+  
+  # Symbolic regression settings
+  symbolic:
+    population_size: 5000
+    generations: 20
+    tournament_size: 20
+    const_range: [-1.0, 1.0]
+    init_depth: [2, 6]
+    function_set: ['add', 'sub', 'mul', 'div', 'sqrt', 'log', 'neg', 'max', 'min']
+    metric: 'mean absolute error'
+    parsimony_coefficient: 0.001
+    random_state: 42
+
+evaluation:
+  # Cross-validation settings
+  cv_folds: 5
+  test_size: 0.2
+  random_state: 42
+  
+  # Metrics to compute
+  metrics:
+    - spearman
+    - kendall
+    - pearson
+    - r2
+    - rmse
+    - mae
+
+selection:
+  # Primary metric for model selection
+  primary_metric: 'spearman'
+  # Complexity penalty weight
+  complexity_penalty: 0.01
+
+analysis:
+  # Feature importance methods
+  importance_methods:
+    - permutation
+    - shap
+  
+  # GED combination weights (will be learned if null)
+  ged_weights:
+    DFG_GED: null
+    PDG_GED: null
+    CFG_GED: null
+    AST_GED: null
+    CPG_GED: null
+
+visualization:
+  # Figure settings
+  figure_format: 'png'
+  figure_dpi: 300
+  figure_size: [10, 6]
+  style: 'seaborn-v0_8-darkgrid'
+
+output:
+  # Output directory
+  output_dir: './outputs'
+  # Export formats
+  export_formats:
+    - python
+    - json
+    - latex
+  # Generate report
+  generate_report: true
+
+random_state: 42
+verbose: true
