@@ -50,7 +50,44 @@ class FormulaSelector:
         Returns:
             Dictionary with evaluation metrics
         """
-        kfold = KFold(n_splits=self.cv_folds, shuffle=True, random_state=self.random_state)
+        n_samples = len(X)
+        
+        # Reset index to ensure positional indexing works
+        X_reset = X.reset_index(drop=True)
+        y_reset = y.reset_index(drop=True)
+        
+        # Adjust CV folds if not enough data
+        actual_cv_folds = min(self.cv_folds, n_samples)
+        
+        if actual_cv_folds < 2:
+            # Not enough data for CV, use train=test evaluation
+            print(f"      ⚠️ Only {n_samples} samples, using full-data evaluation")
+            formula.fit(X_reset, y_reset)
+            y_pred = formula.predict(X_reset)
+            
+            corr_metrics = CorrelationMetrics.compute_all(y_reset.values, y_pred)
+            reg_metrics = RegressionMetrics.compute_all(y_reset.values, y_pred, n_features=len(X.columns))
+            
+            return {
+                'formula_name': formula.name,
+                'cv_spearman_mean': corr_metrics.get('spearman', 0),
+                'cv_spearman_std': 0.0,
+                'cv_r2_mean': reg_metrics.get('r2', 0),
+                'cv_r2_std': 0.0,
+                'cv_rmse_mean': reg_metrics.get('rmse', 0),
+                'cv_rmse_std': 0.0,
+                'cv_mae_mean': reg_metrics.get('mae', 0),
+                'cv_mae_std': 0.0,
+                'complexity': formula.get_complexity(),
+                'selection_score': corr_metrics.get('spearman', 0) - self.complexity_penalty * formula.get_complexity(),
+                'n_samples': n_samples,
+                'cv_folds_used': 1
+            }
+        
+        if actual_cv_folds != self.cv_folds:
+            print(f"      ⚠️ Adjusted CV folds: {self.cv_folds} → {actual_cv_folds} (only {n_samples} samples)")
+        
+        kfold = KFold(n_splits=actual_cv_folds, shuffle=True, random_state=self.random_state)
         
         cv_scores = {
             'spearman': [],
@@ -59,22 +96,37 @@ class FormulaSelector:
             'mae': []
         }
         
-        for train_idx, val_idx in kfold.split(X):
-            X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
-            y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
-            
-            # Fit and predict
-            formula.fit(X_train, y_train)
-            y_pred = formula.predict(X_val)
-            
-            # Compute metrics
-            corr_metrics = CorrelationMetrics.compute_all(y_val, y_pred)
-            reg_metrics = RegressionMetrics.compute_all(y_val, y_pred, n_features=len(X.columns))
-            
-            cv_scores['spearman'].append(corr_metrics['spearman'])
-            cv_scores['r2'].append(reg_metrics['r2'])
-            cv_scores['rmse'].append(reg_metrics['rmse'])
-            cv_scores['mae'].append(reg_metrics['mae'])
+        for fold_idx, (train_idx, val_idx) in enumerate(kfold.split(X_reset)):
+            try:
+                # Use numpy array indexing
+                X_train = X_reset.iloc[train_idx].copy()
+                X_val = X_reset.iloc[val_idx].copy()
+                y_train = y_reset.iloc[train_idx].copy()
+                y_val = y_reset.iloc[val_idx].copy()
+                
+                # Fit and predict
+                formula.fit(X_train, y_train)
+                y_pred = formula.predict(X_val)
+                
+                # Ensure y_val is numpy array for metrics computation
+                y_val_arr = y_val.values if hasattr(y_val, 'values') else np.array(y_val)
+                y_pred_arr = np.array(y_pred)
+                
+                # Compute metrics
+                corr_metrics = CorrelationMetrics.compute_all(y_val_arr, y_pred_arr)
+                reg_metrics = RegressionMetrics.compute_all(y_val_arr, y_pred_arr, n_features=len(X.columns))
+                
+                cv_scores['spearman'].append(corr_metrics.get('spearman', 0))
+                cv_scores['r2'].append(reg_metrics.get('r2', 0))
+                cv_scores['rmse'].append(reg_metrics.get('rmse', 0))
+                cv_scores['mae'].append(reg_metrics.get('mae', 0))
+                
+            except Exception as e:
+                print(f"      ⚠️ Fold {fold_idx + 1} failed: {e}")
+                continue
+        
+        if not cv_scores['spearman']:
+            raise ValueError("All CV folds failed")
         
         # Compute mean and std of CV scores
         results = {
@@ -87,7 +139,9 @@ class FormulaSelector:
             'cv_rmse_std': np.std(cv_scores['rmse']),
             'cv_mae_mean': np.mean(cv_scores['mae']),
             'cv_mae_std': np.std(cv_scores['mae']),
-            'complexity': formula.get_complexity()
+            'complexity': formula.get_complexity(),
+            'n_samples': n_samples,
+            'cv_folds_used': len(cv_scores['spearman'])
         }
         
         # Compute selection score
@@ -114,7 +168,13 @@ class FormulaSelector:
         """
         self.evaluation_results = []
         
-        print(f"\nEvaluating {len(formulas)} formula candidates...")
+        n_samples = len(X)
+        print(f"\nEvaluating {len(formulas)} formula candidates on {n_samples} samples...")
+        
+        if n_samples < 5:
+            print(f"⚠️ Warning: Only {n_samples} samples available. Results may not be reliable.")
+        if n_samples == 0:
+            raise ValueError("No data available for evaluation")
         
         for i, formula in enumerate(formulas):
             print(f"  [{i+1}/{len(formulas)}] Evaluating {formula.name}...")
@@ -129,7 +189,8 @@ class FormulaSelector:
                 continue
         
         if not self.evaluation_results:
-            raise ValueError("No formulas could be evaluated successfully")
+            raise ValueError("No formulas could be evaluated successfully. "
+                           "Check that your data has enough samples and valid values.")
         
         # Select best by selection score
         best_result = max(self.evaluation_results, key=lambda x: x['selection_score'])
@@ -141,7 +202,9 @@ class FormulaSelector:
         print(f"  {self.primary_metric}: {best_result[f'cv_{self.primary_metric}_mean']:.4f}")
         
         # Fit best formula on full data
-        best_formula.fit(X, y)
+        X_reset = X.reset_index(drop=True)
+        y_reset = y.reset_index(drop=True)
+        best_formula.fit(X_reset, y_reset)
         
         return best_formula
     

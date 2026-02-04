@@ -29,17 +29,36 @@ class ModelResultsLoader:
             Series with bug_id as index and success_rate as value
         """
         # Load the CSV file
-        self.matrix = pd.read_csv(self.matrix_file, index_col=0)
+        self.matrix = pd.read_csv(self.matrix_file)
+        
+        # Check if first column is model_name
+        first_col = self.matrix.columns[0]
+        if first_col in ['model_name', 'model_id', 'Unnamed: 0']:
+            self.matrix = self.matrix.set_index(first_col)
+        
+        # Ensure all values are numeric (0 or 1)
+        bug_columns = self.matrix.columns
+        for col in bug_columns:
+            self.matrix[col] = pd.to_numeric(self.matrix[col], errors='coerce').fillna(0).astype(int)
         
         # Compute success rate for each bug (column)
         # Success rate = (number of models that solved it) / (total models)
         total_models = len(self.matrix)
+        
+        if total_models == 0:
+            raise ValueError("No models found in matrix file")
         
         # Sum successes (1s) for each bug
         success_counts = self.matrix.sum(axis=0)
         
         # Calculate success rates
         self.success_rates = success_counts / total_models
+        
+        # Ensure index is string type for matching
+        self.success_rates.index = self.success_rates.index.astype(str)
+        
+        print(f"  Loaded {len(self.matrix)} models × {len(self.success_rates)} bugs")
+        print(f"  Success rate range: {self.success_rates.min():.2%} - {self.success_rates.max():.2%}")
         
         return self.success_rates
     

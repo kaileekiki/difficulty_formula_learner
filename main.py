@@ -177,18 +177,36 @@ def load_data(config: dict):
     )
     X = metrics_loader.load()
     print(f"✓ Loaded {len(X)} bug instances with {len(X.columns)} features")
+    print(f"  Sample bug IDs: {list(X.index[:3])}")
     
     # Load model results
     print(f"\nLoading model results from: {config['data']['matrix_file']}")
     results_loader = ModelResultsLoader(matrix_file=config['data']['matrix_file'])
     y = results_loader.load()
     print(f"✓ Loaded success rates for {len(y)} bugs")
+    print(f"  Sample bug IDs: {list(y.index[:3])}")
     
-    # Align data
+    # Align data - ensure both have string indices
+    X.index = X.index.astype(str)
+    y.index = y.index.astype(str)
+    
+    # Find common bugs
     common_bugs = X.index.intersection(y.index)
+    
+    if len(common_bugs) == 0:
+        print("\n⚠️ WARNING: No common bug IDs found!")
+        print(f"  Metrics bug IDs sample: {list(X.index[:5])}")
+        print(f"  Matrix bug IDs sample: {list(y.index[:5])}")
+        print("\n  This usually means the ID formats don't match.")
+        print("  Check that both use the same format (e.g., 'repo__issue-123')")
+        raise ValueError("No common bugs found between metrics and matrix data")
+    
     X = X.loc[common_bugs]
     y = y.loc[common_bugs]
-    print(f"✓ {len(common_bugs)} bugs have both metrics and success rates")
+    print(f"\n✓ {len(common_bugs)} bugs have both metrics and success rates")
+    
+    if len(common_bugs) < 5:
+        print(f"⚠️ Warning: Only {len(common_bugs)} common bugs. Consider adding more data.")
     
     return X, y, metrics_loader, results_loader
 
