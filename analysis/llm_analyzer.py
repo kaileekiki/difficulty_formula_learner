@@ -133,38 +133,61 @@ Feature-Target 상관관계:
         return self._call_api(prompt)
     
     def explain_formula_selection(self, 
-                                  formula_candidates: List[Dict[str, Any]],
+                                  formula_candidates,  # Can be List[Dict] or DataFrame
                                   best_formula: Dict[str, Any]) -> str:
         """
         Explain why a particular formula was selected.
         
         Args:
-            formula_candidates: List of all evaluated formulas
+            formula_candidates: List of all evaluated formulas (List[Dict] or DataFrame)
             best_formula: The selected best formula
             
         Returns:
             Explanation of selection
         """
+        # Convert DataFrame to list of dicts if necessary
+        if hasattr(formula_candidates, 'to_dict'):
+            formula_candidates = formula_candidates.to_dict('records')
+        elif not isinstance(formula_candidates, list):
+            formula_candidates = []
+        
         if not self.is_available:
             return self._fallback_selection_explanation(formula_candidates, best_formula)
         
         # Sanitize and limit candidates to top 10
         safe_candidates = []
         for c in formula_candidates[:10]:
-            safe_name = str(c.get('formula_name', 'Unknown'))[:100]
-            safe_candidates.append({
-                'formula_name': safe_name,
-                'cv_spearman_mean': float(c.get('cv_spearman_mean', 0)),
-                'cv_r2_mean': float(c.get('cv_r2_mean', 0)),
-                'complexity': int(c.get('complexity', 0))
-            })
+            # Handle both dict and other types
+            if isinstance(c, dict):
+                safe_name = str(c.get('formula_name', 'Unknown'))[:100]
+                safe_candidates.append({
+                    'formula_name': safe_name,
+                    'cv_spearman_mean': float(c.get('cv_spearman_mean', 0) or 0),
+                    'cv_r2_mean': float(c.get('cv_r2_mean', 0) or 0),
+                    'complexity': int(c.get('complexity', 0) or 0)
+                })
+            else:
+                # Skip non-dict items
+                continue
         
-        safe_best = {
-            'formula_name': str(best_formula.get('formula_name', 'Unknown'))[:100],
-            'cv_spearman_mean': float(best_formula.get('cv_spearman_mean', 0)),
-            'cv_r2_mean': float(best_formula.get('cv_r2_mean', 0)),
-            'complexity': int(best_formula.get('complexity', 0))
-        }
+        if not safe_candidates:
+            return "No valid formula candidates to explain."
+        
+        # Sanitize best formula
+        if isinstance(best_formula, dict):
+            safe_best = {
+                'formula_name': str(best_formula.get('formula_name', 'Unknown'))[:100],
+                'cv_spearman_mean': float(best_formula.get('cv_spearman_mean', 0) or 0),
+                'cv_r2_mean': float(best_formula.get('cv_r2_mean', 0) or 0),
+                'complexity': int(best_formula.get('complexity', 0) or 0)
+            }
+        else:
+            safe_best = {
+                'formula_name': str(best_formula),
+                'cv_spearman_mean': 0,
+                'cv_r2_mean': 0,
+                'complexity': 0
+            }
         
         candidates_summary = "\n".join([
             f"- {c['formula_name']}: Spearman={c['cv_spearman_mean']:.4f}, "
@@ -250,18 +273,56 @@ Feature-Target 상관관계:
         recommendations += "- 더 자세한 제안을 위해 API 키를 설정해주세요."
         return recommendations
     
-    def _fallback_selection_explanation(self, candidates: List[Dict], best: Dict) -> str:
+    def _fallback_selection_explanation(self, candidates, best: Dict) -> str:
         """Fallback selection explanation without API."""
-        return f"""
+        # Convert DataFrame to list of dicts if necessary
+        if hasattr(candidates, 'to_dict'):
+            candidates = candidates.to_dict('records')
+        elif not isinstance(candidates, list):
+            candidates = []
+        
+        if not candidates:
+            return "No formula candidates to explain."
+        
+        # Handle best formula safely
+        try:
+            if isinstance(best, dict):
+                best_name = best.get('formula_name', 'Unknown')
+                best_spearman = best.get('cv_spearman_mean', 0) or 0
+                best_r2 = best.get('cv_r2_mean', 0) or 0
+                best_complexity = best.get('complexity', 0) or 0
+            else:
+                best_name = str(best)
+                best_spearman = 0
+                best_r2 = 0
+                best_complexity = 0
+            
+            explanation = f"""
 ## 수식 선택 설명 (API 키 없이 자동 생성)
 
-**선택된 수식**: {best.get('formula_name')}
+**선택된 수식**: {best_name}
 
 ### 선택 이유:
-- Spearman 상관계수: {best.get('cv_spearman_mean', 0):.4f}
-- R² 결정계수: {best.get('cv_r2_mean', 0):.4f}
-- 복잡도: {best.get('complexity', 0)}
+- Spearman 상관계수: {best_spearman:.4f}
+- R² 결정계수: {best_r2:.4f}
+- 복잡도: {best_complexity}
 
+### 후보 수식들:
+"""
+            # Add top candidates
+            for i, c in enumerate(candidates[:5], 1):
+                if isinstance(c, dict):
+                    name = c.get('formula_name', 'Unknown')
+                    spearman = c.get('cv_spearman_mean', 0) or 0
+                    r2 = c.get('cv_r2_mean', 0) or 0
+                    complexity = c.get('complexity', 0) or 0
+                    explanation += f"{i}. {name}: ρ={spearman:.4f}, R²={r2:.4f}, complexity={complexity}\n"
+            
+            explanation += """
 이 수식은 예측 성능(Spearman)과 복잡도 사이의 균형이 가장 좋습니다.
 더 자세한 설명을 위해 API 키를 설정해주세요.
 """
+            return explanation
+            
+        except Exception as e:
+            return f"Could not generate explanation: {e}"
