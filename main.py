@@ -101,9 +101,30 @@ def analyze_with_llm(best_formula, results, evaluation_summary, config):
     
     # Explain selection
     print("\n→ Explaining formula selection...")
+    
+    # Convert evaluation_summary to list of dicts if it's a DataFrame
+    if hasattr(evaluation_summary, 'to_dict'):
+        # It's a DataFrame
+        candidates_list = evaluation_summary.to_dict('records')
+    elif isinstance(evaluation_summary, list):
+        candidates_list = evaluation_summary
+    else:
+        candidates_list = []
+    
+    # Get best formula metadata safely
+    try:
+        best_metadata = best_formula.get_metadata()
+    except AttributeError:
+        best_metadata = {
+            'formula_name': best_formula.name,
+            'cv_spearman_mean': 0,
+            'cv_r2_mean': 0,
+            'complexity': best_formula.get_complexity() if hasattr(best_formula, 'get_complexity') else 0
+        }
+    
     explanation = analyzer.explain_formula_selection(
-        evaluation_summary,
-        best_formula.get_metadata()
+        candidates_list,
+        best_metadata
     )
     print(explanation)
     

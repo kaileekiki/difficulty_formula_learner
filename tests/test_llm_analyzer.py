@@ -4,6 +4,7 @@ Tests for LLMAnalyzer class
 import unittest
 from unittest.mock import Mock, patch
 import os
+import pandas as pd
 
 from analysis.llm_analyzer import LLMAnalyzer
 
@@ -81,6 +82,35 @@ class TestLLMAnalyzer(unittest.TestCase):
         analyzer = LLMAnalyzer(provider="anthropic")
         self.assertEqual(analyzer.api_key, "test_key")
         self.assertFalse(analyzer.is_available)
+    
+    def test_explain_formula_selection_with_dataframe(self):
+        """Test explain_formula_selection with DataFrame input."""
+        analyzer = LLMAnalyzer()
+        
+        # Create a DataFrame as would be returned by selector.get_evaluation_summary()
+        candidates_df = pd.DataFrame([
+            {"formula_name": "Linear", "cv_spearman_mean": 0.7, "cv_r2_mean": 0.5, "complexity": 1},
+            {"formula_name": "Polynomial", "cv_spearman_mean": 0.6, "cv_r2_mean": 0.4, "complexity": 3}
+        ])
+        
+        best = {"formula_name": "Linear", "cv_spearman_mean": 0.7, "cv_r2_mean": 0.5, "complexity": 1}
+        
+        # Should not raise an error even with DataFrame input
+        result = analyzer.explain_formula_selection(candidates_df, best)
+        self.assertIn("선택된 수식", result)
+        self.assertIn("Linear", result)
+    
+    def test_explain_formula_selection_with_empty_dataframe(self):
+        """Test explain_formula_selection with empty DataFrame."""
+        analyzer = LLMAnalyzer()
+        
+        candidates_df = pd.DataFrame()
+        best = {"formula_name": "Linear", "cv_spearman_mean": 0.7, "cv_r2_mean": 0.5, "complexity": 1}
+        
+        result = analyzer.explain_formula_selection(candidates_df, best)
+        self.assertIsInstance(result, str)
+        # Message is now in Korean
+        self.assertTrue("설명할" in result or "후보가 없습니다" in result)
 
 
 if __name__ == '__main__':
