@@ -184,7 +184,7 @@ def load_config(config_path: str) -> dict:
     return config
 
 
-def load_data(config: dict):
+def load_data(config: dict, limit: int = None):
     """Load metrics and model results data."""
     print("\n" + "="*80)
     print("LOADING DATA")
@@ -221,6 +221,11 @@ def load_data(config: dict):
         print("\n  This usually means the ID formats don't match.")
         print("  Check that both use the same format (e.g., 'repo__issue-123')")
         raise ValueError("No common bugs found between metrics and matrix data")
+    
+    # Apply limit if specified
+    if limit:
+        common_bugs = sorted(list(common_bugs))[:limit]
+        print(f"✓ Limited to {len(common_bugs)} bugs for testing")
     
     X = X.loc[common_bugs]
     y = y.loc[common_bugs]
@@ -565,6 +570,12 @@ def main():
         action='store_true',
         help='Use LLM API for enhanced formula analysis'
     )
+    parser.add_argument(
+        '--limit',
+        type=int,
+        default=None,
+        help='Limit number of bugs for quick testing (e.g., --limit 100)'
+    )
     
     args = parser.parse_args()
     
@@ -609,9 +620,11 @@ def main():
     print(f"\nMetrics directory: {config['data']['metrics_dir']}")
     print(f"Matrix file: {config['data']['matrix_file']}")
     print(f"Output directory: {config['output']['output_dir']}")
+    if args.limit:
+        print(f"Bug limit: {args.limit}")
     
     # Load data
-    X, y, metrics_loader, results_loader = load_data(config)
+    X, y, metrics_loader, results_loader = load_data(config, limit=args.limit)
     
     # Preprocess
     X_processed, normalizer = preprocess_data(X, config)

@@ -97,6 +97,24 @@ python main.py \
     --matrix-file /path/to/matrix.csv
 ```
 
+### Quick Test (100 bugs)
+
+For fast iteration during development:
+
+```bash
+# Quick test script
+python quick_test_100.py
+
+# Full analysis with 100 bugs
+python analyze_100_bugs.py
+
+# Or use main.py with --limit
+python main.py \
+    --metrics-dir data/sample/metrics \
+    --matrix-file data/sample/model_results/model_bug_matrix.csv \
+    --limit 100
+```
+
 ### Configuration
 
 Edit `config.yaml` to customize:
