@@ -1,78 +1,89 @@
 """
 Correlation Metrics
-Spearman's ρ, Kendall's τ, Pearson's r
+Compute correlation-based evaluation metrics
 """
 import numpy as np
-from scipy.stats import spearmanr, kendalltau, pearsonr
-from typing import Dict, Tuple
+from scipy import stats
+from typing import Dict
 
 
 class CorrelationMetrics:
-    """Compute correlation metrics for ranking evaluation."""
+    """Compute correlation metrics between actual and predicted values."""
     
     @staticmethod
-    def spearman(y_true: np.ndarray, y_pred: np.ndarray) -> Tuple[float, float]:
-        """
-        Compute Spearman's rank correlation coefficient.
-        
-        Args:
-            y_true: True values
-            y_pred: Predicted values
-            
-        Returns:
-            (correlation, p-value)
-        """
-        return spearmanr(y_true, y_pred)
+    def compute_spearman(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+        """Compute Spearman rank correlation coefficient."""
+        try:
+            if len(y_true) < 2:
+                return 0.0
+            # Handle constant arrays
+            if np.std(y_true) == 0 or np.std(y_pred) == 0:
+                return 0.0
+            corr, _ = stats.spearmanr(y_true, y_pred)
+            return float(corr) if not np.isnan(corr) else 0.0
+        except Exception:
+            return 0.0
     
     @staticmethod
-    def kendall(y_true: np.ndarray, y_pred: np.ndarray) -> Tuple[float, float]:
-        """
-        Compute Kendall's tau rank correlation coefficient.
-        
-        Args:
-            y_true: True values
-            y_pred: Predicted values
-            
-        Returns:
-            (correlation, p-value)
-        """
-        return kendalltau(y_true, y_pred)
+    def compute_kendall(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+        """Compute Kendall tau correlation coefficient."""
+        try:
+            if len(y_true) < 2:
+                return 0.0
+            if np.std(y_true) == 0 or np.std(y_pred) == 0:
+                return 0.0
+            corr, _ = stats.kendalltau(y_true, y_pred)
+            return float(corr) if not np.isnan(corr) else 0.0
+        except Exception:
+            return 0.0
     
     @staticmethod
-    def pearson(y_true: np.ndarray, y_pred: np.ndarray) -> Tuple[float, float]:
-        """
-        Compute Pearson correlation coefficient.
-        
-        Args:
-            y_true: True values
-            y_pred: Predicted values
-            
-        Returns:
-            (correlation, p-value)
-        """
-        return pearsonr(y_true, y_pred)
+    def compute_pearson(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+        """Compute Pearson correlation coefficient."""
+        try:
+            if len(y_true) < 2:
+                return 0.0
+            if np.std(y_true) == 0 or np.std(y_pred) == 0:
+                return 0.0
+            corr, _ = stats.pearsonr(y_true, y_pred)
+            return float(corr) if not np.isnan(corr) else 0.0
+        except Exception:
+            return 0.0
     
     @staticmethod
     def compute_all(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
-        """
-        Compute all correlation metrics.
-        
-        Args:
-            y_true: True values
-            y_pred: Predicted values
-            
-        Returns:
-            Dictionary with all correlation metrics
-        """
-        spearman_corr, spearman_p = CorrelationMetrics.spearman(y_true, y_pred)
-        kendall_corr, kendall_p = CorrelationMetrics.kendall(y_true, y_pred)
-        pearson_corr, pearson_p = CorrelationMetrics.pearson(y_true, y_pred)
+        """Compute all correlation metrics."""
+        # Ensure numpy arrays
+        y_true = np.array(y_true).flatten()
+        y_pred = np.array(y_pred).flatten()
         
         return {
-            'spearman': spearman_corr,
-            'spearman_pvalue': spearman_p,
-            'kendall': kendall_corr,
-            'kendall_pvalue': kendall_p,
-            'pearson': pearson_corr,
-            'pearson_pvalue': pearson_p
+            'spearman': CorrelationMetrics.compute_spearman(y_true, y_pred),
+            'kendall': CorrelationMetrics.compute_kendall(y_true, y_pred),
+            'pearson': CorrelationMetrics.compute_pearson(y_true, y_pred)
         }
+    
+    # Keep old methods for backward compatibility
+    @staticmethod
+    def spearman(y_true: np.ndarray, y_pred: np.ndarray):
+        """Compute Spearman's rank correlation coefficient (legacy method)."""
+        try:
+            return stats.spearmanr(y_true, y_pred)
+        except Exception:
+            return (0.0, 1.0)
+    
+    @staticmethod
+    def kendall(y_true: np.ndarray, y_pred: np.ndarray):
+        """Compute Kendall's tau rank correlation coefficient (legacy method)."""
+        try:
+            return stats.kendalltau(y_true, y_pred)
+        except Exception:
+            return (0.0, 1.0)
+    
+    @staticmethod
+    def pearson(y_true: np.ndarray, y_pred: np.ndarray):
+        """Compute Pearson correlation coefficient (legacy method)."""
+        try:
+            return stats.pearsonr(y_true, y_pred)
+        except Exception:
+            return (0.0, 1.0)
