@@ -70,8 +70,10 @@ selection:
 analysis:
   # Feature importance methods
   importance_methods:
+    - coefficient
+    - correlation
     - permutation
-    - shap
+    # - shap  # Optional - requires shap installation
   
   # GED combination weights (will be learned if null)
   ged_weights:
