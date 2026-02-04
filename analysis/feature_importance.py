@@ -5,6 +5,7 @@ Permutation importance and SHAP values
 import pandas as pd
 import numpy as np
 from typing import Dict, Optional
+from sklearn.base import BaseEstimator, RegressorMixin
 
 try:
     import shap
@@ -15,7 +16,7 @@ except ImportError:
 from formula.generators.base_formula import BaseFormula
 
 
-class SklearnWrapper:
+class SklearnWrapper(BaseEstimator, RegressorMixin):
     """Wrapper to make our formula compatible with sklearn's permutation_importance."""
     
     def __init__(self, formula: BaseFormula, feature_names: list):
