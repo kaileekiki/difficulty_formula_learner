@@ -106,7 +106,8 @@ class FeatureImportanceAnalyzer:
             return importance
         
         # Fallback: use variance-based importance (less meaningful but safe)
-        print("  Using variance-based fallback importance")
+        print("  ⚠️ Using variance-based fallback importance - interpret with caution")
+        print("     (variance does not indicate predictive importance)")
         return {col: float(X[col].var()) for col in X.columns}
     
     def compute_shap_importance(self,

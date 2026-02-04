@@ -123,7 +123,7 @@ class TestFeatureImportanceAnalyzer(unittest.TestCase):
         self.assertIsInstance(importance, dict)
         self.assertEqual(len(importance), len(self.X.columns))
         
-        # Check all values are between 0 and 1 (absolute correlations)
+        # Check all values are between 0 and 1 (absolute Spearman correlations)
         for col in self.X.columns:
             self.assertIn(col, importance)
             self.assertGreaterEqual(importance[col], 0.0)
@@ -181,10 +181,9 @@ class TestFeatureImportanceAnalyzer(unittest.TestCase):
         self.assertIsInstance(df, pd.DataFrame)
         self.assertGreater(len(df), 0)
         
-        # Check that averaged column exists
+        # Check that averaged column exists and is sorted descending
         if 'averaged' in df.columns:
-            self.assertTrue(df['averaged'].is_monotonic_decreasing or 
-                          df['averaged'].iloc[0] >= df['averaged'].iloc[-1])
+            self.assertTrue(df['averaged'].is_monotonic_decreasing)
     
     def test_fallback_on_failure(self):
         """Test that fallback mechanism works when permutation fails."""
