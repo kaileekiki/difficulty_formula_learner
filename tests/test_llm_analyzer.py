@@ -109,7 +109,8 @@ class TestLLMAnalyzer(unittest.TestCase):
         
         result = analyzer.explain_formula_selection(candidates_df, best)
         self.assertIsInstance(result, str)
-        self.assertTrue("no" in result.lower() or "formula" in result.lower())
+        # Message is now in Korean
+        self.assertTrue("설명할" in result or "후보가 없습니다" in result)
 
 
 if __name__ == '__main__':

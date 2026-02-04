@@ -50,6 +50,24 @@ class LLMAnalyzer:
         
         self.is_available = self.api_key is not None and self.client is not None
     
+    def _normalize_candidates(self, formula_candidates) -> List[Dict]:
+        """
+        Normalize formula candidates to list of dicts.
+        
+        Args:
+            formula_candidates: Can be DataFrame, List[Dict], or other type
+            
+        Returns:
+            List of dictionaries
+        """
+        # Convert DataFrame to list of dicts if necessary
+        if hasattr(formula_candidates, 'to_dict'):
+            return formula_candidates.to_dict('records')
+        elif isinstance(formula_candidates, list):
+            return formula_candidates
+        else:
+            return []
+    
     def interpret_formula(self, formula_string: str, feature_importance: Dict[str, float]) -> str:
         """
         Get LLM interpretation of a formula.
@@ -145,11 +163,8 @@ Feature-Target 상관관계:
         Returns:
             Explanation of selection
         """
-        # Convert DataFrame to list of dicts if necessary
-        if hasattr(formula_candidates, 'to_dict'):
-            formula_candidates = formula_candidates.to_dict('records')
-        elif not isinstance(formula_candidates, list):
-            formula_candidates = []
+        # Normalize candidates to list of dicts
+        formula_candidates = self._normalize_candidates(formula_candidates)
         
         if not self.is_available:
             return self._fallback_selection_explanation(formula_candidates, best_formula)
@@ -160,26 +175,35 @@ Feature-Target 상관관계:
             # Handle both dict and other types
             if isinstance(c, dict):
                 safe_name = str(c.get('formula_name', 'Unknown'))[:100]
+                # Handle None values by providing defaults
+                spearman = c.get('cv_spearman_mean', 0)
+                r2 = c.get('cv_r2_mean', 0)
+                complexity = c.get('complexity', 0)
+                
                 safe_candidates.append({
                     'formula_name': safe_name,
-                    'cv_spearman_mean': float(c.get('cv_spearman_mean', 0) or 0),
-                    'cv_r2_mean': float(c.get('cv_r2_mean', 0) or 0),
-                    'complexity': int(c.get('complexity', 0) or 0)
+                    'cv_spearman_mean': float(spearman if spearman is not None else 0),
+                    'cv_r2_mean': float(r2 if r2 is not None else 0),
+                    'complexity': int(complexity if complexity is not None else 0)
                 })
             else:
                 # Skip non-dict items
                 continue
         
         if not safe_candidates:
-            return "No valid formula candidates to explain."
+            return "설명할 수식 후보가 없습니다."
         
         # Sanitize best formula
         if isinstance(best_formula, dict):
+            spearman = best_formula.get('cv_spearman_mean', 0)
+            r2 = best_formula.get('cv_r2_mean', 0)
+            complexity = best_formula.get('complexity', 0)
+            
             safe_best = {
                 'formula_name': str(best_formula.get('formula_name', 'Unknown'))[:100],
-                'cv_spearman_mean': float(best_formula.get('cv_spearman_mean', 0) or 0),
-                'cv_r2_mean': float(best_formula.get('cv_r2_mean', 0) or 0),
-                'complexity': int(best_formula.get('complexity', 0) or 0)
+                'cv_spearman_mean': float(spearman if spearman is not None else 0),
+                'cv_r2_mean': float(r2 if r2 is not None else 0),
+                'complexity': int(complexity if complexity is not None else 0)
             }
         else:
             safe_best = {
@@ -275,22 +299,24 @@ Feature-Target 상관관계:
     
     def _fallback_selection_explanation(self, candidates, best: Dict) -> str:
         """Fallback selection explanation without API."""
-        # Convert DataFrame to list of dicts if necessary
-        if hasattr(candidates, 'to_dict'):
-            candidates = candidates.to_dict('records')
-        elif not isinstance(candidates, list):
-            candidates = []
+        # Normalize candidates to list of dicts
+        candidates = self._normalize_candidates(candidates)
         
         if not candidates:
-            return "No formula candidates to explain."
+            return "설명할 수식 후보가 없습니다."
         
         # Handle best formula safely
         try:
             if isinstance(best, dict):
                 best_name = best.get('formula_name', 'Unknown')
-                best_spearman = best.get('cv_spearman_mean', 0) or 0
-                best_r2 = best.get('cv_r2_mean', 0) or 0
-                best_complexity = best.get('complexity', 0) or 0
+                best_spearman = best.get('cv_spearman_mean', 0)
+                best_r2 = best.get('cv_r2_mean', 0)
+                best_complexity = best.get('complexity', 0)
+                
+                # Handle None values
+                best_spearman = best_spearman if best_spearman is not None else 0
+                best_r2 = best_r2 if best_r2 is not None else 0
+                best_complexity = best_complexity if best_complexity is not None else 0
             else:
                 best_name = str(best)
                 best_spearman = 0
@@ -313,9 +339,15 @@ Feature-Target 상관관계:
             for i, c in enumerate(candidates[:5], 1):
                 if isinstance(c, dict):
                     name = c.get('formula_name', 'Unknown')
-                    spearman = c.get('cv_spearman_mean', 0) or 0
-                    r2 = c.get('cv_r2_mean', 0) or 0
-                    complexity = c.get('complexity', 0) or 0
+                    spearman = c.get('cv_spearman_mean', 0)
+                    r2 = c.get('cv_r2_mean', 0)
+                    complexity = c.get('complexity', 0)
+                    
+                    # Handle None values
+                    spearman = spearman if spearman is not None else 0
+                    r2 = r2 if r2 is not None else 0
+                    complexity = complexity if complexity is not None else 0
+                    
                     explanation += f"{i}. {name}: ρ={spearman:.4f}, R²={r2:.4f}, complexity={complexity}\n"
             
             explanation += """
@@ -325,4 +357,4 @@ Feature-Target 상관관계:
             return explanation
             
         except Exception as e:
-            return f"Could not generate explanation: {e}"
+            return f"설명을 생성할 수 없습니다: {str(e)}"
